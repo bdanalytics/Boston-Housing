@@ -60,6 +60,7 @@ Based on analysis utilizing <> techniques, <conclusion heading>:
     
     - Change .fit suffix of model metrics to .mdl if it's data independent (e.g. AIC, Adj.R.Squared - is it truly data independent ?, etc.)
     - move model_type parameter to myfit_mdl before indep_vars_vctr (keep all model_* together)
+    - create a custom model for rpart that has minbucket as a tuning parameter
     - varImp for randomForest crashes in caret version:6.0.41 -> submit bug report
 
 - Probability handling for multinomials vs. desired binomial outcome
@@ -195,13 +196,13 @@ glb_model_metric_smmry <- NULL # or function(data, lev=NULL, model=NULL) {
 
 glb_tune_models_df <- 
    rbind(
-    data.frame(parameter="cp", min=0.01, max=0.01, by=0.005),
-                        #  seq(from=0.01,  to=0.01, by=0.005)
+    data.frame(parameter="cp", min=0.001, max=0.010, by=0.001),
+                          #seq(from=0.000,  to=0.010, by=0.001)
     #data.frame(parameter="mtry", min=2, max=4, by=1),
     data.frame(parameter="dummy", min=2, max=4, by=1)
         ) 
 # or NULL
-glb_n_cv_folds <- 3 # or NULL
+glb_n_cv_folds <- 10 # or NULL
 
 glb_clf_proba_threshold <- NULL # 0.5
 
@@ -739,13 +740,20 @@ ret_lst <- myfit_mdl(model_id="latlon",
                         fit_df=glb_entity_df, OOB_df=NULL)
 
 # latlon.rpart similar to recitation - video 4
+tmp_tune_models_df <- 
+   rbind(
+    data.frame(parameter="cp", min=0.01, max=0.01, by=0.01),
+                          #seq(from=0.01,  to=0.01, by=0.01)
+    #data.frame(parameter="mtry", min=2, max=4, by=1),
+    data.frame(parameter="dummy", min=2, max=4, by=1)
+        ) 
 ret_lst <- myfit_mdl(model_id="latlon", 
                      model_method="rpart", 
                      model_type=glb_model_type,
                         indep_vars_vctr=c("LAT", "LON"),
                         rsp_var=glb_rsp_var, rsp_var_out=glb_rsp_var_out,
                         fit_df=glb_entity_df, OOB_df=NULL,
-                    n_cv_folds=0, tune_models_df=glb_tune_models_df)
+                    n_cv_folds=0, tune_models_df=tmp_tune_models_df)
 
 # Max.cor.Y
 ret_lst <- myfit_mdl(model_id="Max.cor.Y.cv.0", 

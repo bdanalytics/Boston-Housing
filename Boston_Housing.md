@@ -40,6 +40,7 @@ Based on analysis utilizing <> techniques, <conclusion heading>:
     
     - Change .fit suffix of model metrics to .mdl if it's data independent (e.g. AIC, Adj.R.Squared - is it truly data independent ?, etc.)
     - move model_type parameter to myfit_mdl before indep_vars_vctr (keep all model_* together)
+    - create a custom model for rpart that has minbucket as a tuning parameter
     - varImp for randomForest crashes in caret version:6.0.41 -> submit bug report
 
 - Probability handling for multinomials vs. desired binomial outcome
@@ -176,13 +177,13 @@ glb_model_metric_smmry <- NULL # or function(data, lev=NULL, model=NULL) {
 
 glb_tune_models_df <- 
    rbind(
-    data.frame(parameter="cp", min=0.01, max=0.01, by=0.005),
-                        #  seq(from=0.01,  to=0.01, by=0.005)
+    data.frame(parameter="cp", min=0.001, max=0.010, by=0.001),
+                          #seq(from=0.000,  to=0.010, by=0.001)
     #data.frame(parameter="mtry", min=2, max=4, by=1),
     data.frame(parameter="dummy", min=2, max=4, by=1)
         ) 
 # or NULL
-glb_n_cv_folds <- 3 # or NULL
+glb_n_cv_folds <- 10 # or NULL
 
 glb_clf_proba_threshold <- NULL # 0.5
 
@@ -527,7 +528,7 @@ print(tail(glb_script_df, 2))
 ```
 ##           chunk_label chunk_step_major chunk_step_minor elapsed
 ## elapsed   import_data                1                0   0.002
-## elapsed1 cleanse_data                2                0   0.480
+## elapsed1 cleanse_data                2                0   0.514
 ```
 
 ## Step `2`: cleanse data
@@ -543,8 +544,8 @@ print(tail(glb_script_df, 2))
 
 ```
 ##                    chunk_label chunk_step_major chunk_step_minor elapsed
-## elapsed1          cleanse_data                2                0   0.480
-## elapsed2 inspectORexplore.data                2                1   0.515
+## elapsed1          cleanse_data                2                0   0.514
+## elapsed2 inspectORexplore.data                2                1   0.548
 ```
 
 ### Step `2`.`1`: inspect/explore data
@@ -896,8 +897,8 @@ print(tail(glb_script_df, 2))
 
 ```
 ##                    chunk_label chunk_step_major chunk_step_minor elapsed
-## elapsed2 inspectORexplore.data                2                1   0.515
-## elapsed3   manage_missing_data                2                2   2.397
+## elapsed2 inspectORexplore.data                2                1   0.548
+## elapsed3   manage_missing_data                2                2   2.415
 ```
 
 ### Step `2`.`2`: manage missing data
@@ -969,8 +970,8 @@ print(tail(glb_script_df, 2))
 
 ```
 ##                  chunk_label chunk_step_major chunk_step_minor elapsed
-## elapsed3 manage_missing_data                2                2   2.397
-## elapsed4  encode_retype_data                2                3   2.944
+## elapsed3 manage_missing_data                2                2   2.415
+## elapsed4  encode_retype_data                2                3   2.949
 ```
 
 ### Step `2`.`3`: encode/retype data
@@ -1015,8 +1016,8 @@ print(tail(glb_script_df, 2))
 
 ```
 ##                 chunk_label chunk_step_major chunk_step_minor elapsed
-## elapsed4 encode_retype_data                2                3   2.944
-## elapsed5   extract_features                3                0   2.998
+## elapsed4 encode_retype_data                2                3   2.949
+## elapsed5   extract_features                3                0   3.007
 ```
 
 ## Step `3`: extract features
@@ -1075,8 +1076,8 @@ print(tail(glb_script_df, 2))
 
 ```
 ##               chunk_label chunk_step_major chunk_step_minor elapsed
-## elapsed5 extract_features                3                0   2.998
-## elapsed6  select_features                4                0   3.778
+## elapsed5 extract_features                3                0   3.007
+## elapsed6  select_features                4                0   3.799
 ```
 
 ## Step `4`: select features
@@ -1121,8 +1122,8 @@ print(tail(glb_script_df, 2))
 ## elapsed6            select_features                4                0
 ## elapsed7 remove_correlated_features                4                1
 ##          elapsed
-## elapsed6   3.778
-## elapsed7   3.959
+## elapsed6   3.799
+## elapsed7   3.983
 ```
 
 ### Step `4`.`1`: remove correlated features
@@ -1643,8 +1644,8 @@ print(tail(glb_script_df, 2))
 ## elapsed7 remove_correlated_features                4                1
 ## elapsed8                 fit.models                5                0
 ##          elapsed
-## elapsed7   3.959
-## elapsed8   6.980
+## elapsed7   3.983
+## elapsed8   7.029
 ```
 
 ## Step `5`: fit models
@@ -1741,9 +1742,9 @@ ret_lst <- myfit_mdl(model_id="MFO",
 ## F-statistic: 0.2388 on 1 and 362 DF,  p-value: 0.6253
 ## 
 ##   model_id model_method  feats max.nTuningRuns min.elapsedtime.everything
-## 1   MFO.lm           lm .rnorm               0                      0.602
+## 1   MFO.lm           lm .rnorm               0                      0.605
 ##   min.elapsedtime.final max.R.sq.fit min.RMSE.fit max.R.sq.OOB
-## 1                 0.002 0.0006593684     9.475775 -0.002734968
+## 1                 0.004 0.0006593684     9.475775 -0.002734968
 ##   min.RMSE.OOB max.Adj.R.sq.fit
 ## 1     8.384599     -0.002101241
 ```
@@ -1797,20 +1798,27 @@ ret_lst <- myfit_mdl(model_id="latlon",
 ##    model_id model_method    feats max.nTuningRuns
 ## 1 latlon.lm           lm LAT, LON               0
 ##   min.elapsedtime.everything min.elapsedtime.final max.R.sq.fit
-## 1                      0.416                 0.003    0.1071649
+## 1                      0.414                 0.003    0.1071649
 ##   min.RMSE.fit max.Adj.R.sq.fit
 ## 1     8.667656        0.1036149
 ```
 
 ```r
 # latlon.rpart similar to recitation - video 4
+tmp_tune_models_df <- 
+   rbind(
+    data.frame(parameter="cp", min=0.01, max=0.01, by=0.01),
+                          #seq(from=0.01,  to=0.01, by=0.01)
+    #data.frame(parameter="mtry", min=2, max=4, by=1),
+    data.frame(parameter="dummy", min=2, max=4, by=1)
+        ) 
 ret_lst <- myfit_mdl(model_id="latlon", 
                      model_method="rpart", 
                      model_type=glb_model_type,
                         indep_vars_vctr=c("LAT", "LON"),
                         rsp_var=glb_rsp_var, rsp_var_out=glb_rsp_var_out,
                         fit_df=glb_entity_df, OOB_df=NULL,
-                    n_cv_folds=0, tune_models_df=glb_tune_models_df)
+                    n_cv_folds=0, tune_models_df=tmp_tune_models_df)
 ```
 
 ```
@@ -2050,7 +2058,7 @@ ret_lst <- myfit_mdl(model_id="latlon",
 ##       model_id model_method    feats max.nTuningRuns
 ## 1 latlon.rpart        rpart LAT, LON               0
 ##   min.elapsedtime.everything min.elapsedtime.final max.R.sq.fit
-## 1                      0.628                 0.018    0.5635405
+## 1                      0.533                 0.018    0.5635405
 ##   min.RMSE.fit
 ## 1     6.060215
 ```
@@ -2097,7 +2105,7 @@ ret_lst <- myfit_mdl(model_id="Max.cor.Y.cv.0",
 ##            model_id model_method feats max.nTuningRuns
 ## 1 Max.cor.Y.cv.0.lm           lm    RM               0
 ##   min.elapsedtime.everything min.elapsedtime.final max.R.sq.fit
-## 1                      0.439                 0.002    0.5022979
+## 1                      0.431                 0.002    0.5022979
 ##   min.RMSE.fit max.R.sq.OOB min.RMSE.OOB max.Adj.R.sq.fit
 ## 1     6.687175    0.4229655     6.360483         0.500923
 ```
@@ -2116,12 +2124,26 @@ ret_lst <- myfit_mdl(model_id="Max.cor.Y.cv.G",
 ```
 ## [1] "fitting model: Max.cor.Y.cv.G.lm"
 ## [1] "    indep_vars: RM"
-## + Fold1: parameter=none 
-## - Fold1: parameter=none 
-## + Fold2: parameter=none 
-## - Fold2: parameter=none 
-## + Fold3: parameter=none 
-## - Fold3: parameter=none 
+## + Fold01: parameter=none 
+## - Fold01: parameter=none 
+## + Fold02: parameter=none 
+## - Fold02: parameter=none 
+## + Fold03: parameter=none 
+## - Fold03: parameter=none 
+## + Fold04: parameter=none 
+## - Fold04: parameter=none 
+## + Fold05: parameter=none 
+## - Fold05: parameter=none 
+## + Fold06: parameter=none 
+## - Fold06: parameter=none 
+## + Fold07: parameter=none 
+## - Fold07: parameter=none 
+## + Fold08: parameter=none 
+## - Fold08: parameter=none 
+## + Fold09: parameter=none 
+## - Fold09: parameter=none 
+## + Fold10: parameter=none 
+## - Fold10: parameter=none 
 ## Aggregating results
 ## Fitting final model on full training set
 ```
@@ -2151,11 +2173,11 @@ ret_lst <- myfit_mdl(model_id="Max.cor.Y.cv.G",
 ##            model_id model_method feats max.nTuningRuns
 ## 1 Max.cor.Y.cv.G.lm           lm    RM               1
 ##   min.elapsedtime.everything min.elapsedtime.final max.R.sq.fit
-## 1                      0.756                 0.002    0.5022979
+## 1                      0.805                 0.003    0.5022979
 ##   min.RMSE.fit max.R.sq.OOB min.RMSE.OOB max.Adj.R.sq.fit max.Rsquared.fit
-## 1     6.736451    0.4229655     6.360483         0.500923        0.5055935
+## 1     6.625483    0.4229655     6.360483         0.500923        0.5335055
 ##   min.RMSESD.fit max.RsquaredSD.fit
-## 1      0.7475416          0.1259622
+## 1        1.33581          0.1836241
 ```
 
 ```r
@@ -2187,12 +2209,26 @@ if (nrow(int_feats_df <- subset(glb_feats_df, (cor.low == 0) &
 ```
 ## [1] "fitting model: Interact.High.cor.y.lm"
 ## [1] "    indep_vars: RM, RM:DIS, RM:RAD, RM:NOX, RM:TAX"
-## + Fold1: parameter=none 
-## - Fold1: parameter=none 
-## + Fold2: parameter=none 
-## - Fold2: parameter=none 
-## + Fold3: parameter=none 
-## - Fold3: parameter=none 
+## + Fold01: parameter=none 
+## - Fold01: parameter=none 
+## + Fold02: parameter=none 
+## - Fold02: parameter=none 
+## + Fold03: parameter=none 
+## - Fold03: parameter=none 
+## + Fold04: parameter=none 
+## - Fold04: parameter=none 
+## + Fold05: parameter=none 
+## - Fold05: parameter=none 
+## + Fold06: parameter=none 
+## - Fold06: parameter=none 
+## + Fold07: parameter=none 
+## - Fold07: parameter=none 
+## + Fold08: parameter=none 
+## - Fold08: parameter=none 
+## + Fold09: parameter=none 
+## - Fold09: parameter=none 
+## + Fold10: parameter=none 
+## - Fold10: parameter=none 
 ## Aggregating results
 ## Fitting final model on full training set
 ```
@@ -2226,11 +2262,11 @@ if (nrow(int_feats_df <- subset(glb_feats_df, (cor.low == 0) &
 ##                 model_id model_method                              feats
 ## 1 Interact.High.cor.y.lm           lm RM, RM:DIS, RM:RAD, RM:NOX, RM:TAX
 ##   max.nTuningRuns min.elapsedtime.everything min.elapsedtime.final
-## 1               1                      0.918                 0.003
+## 1               1                      0.981                 0.004
 ##   max.R.sq.fit min.RMSE.fit max.R.sq.OOB min.RMSE.OOB max.Adj.R.sq.fit
-## 1     0.602982     6.062844    0.5910614     5.354492        0.5974371
+## 1     0.602982     5.868191    0.5910614     5.354492        0.5974371
 ##   max.Rsquared.fit min.RMSESD.fit max.RsquaredSD.fit
-## 1         0.595567      0.7128725         0.08160762
+## 1        0.6342187       1.804358          0.2221433
 ```
 
 ```r
@@ -2248,12 +2284,26 @@ ret_lst <- myfit_mdl(model_id="Low.cor.X",
 ```
 ## [1] "fitting model: Low.cor.X.lm"
 ## [1] "    indep_vars: RM, ZN, CHAS, .rnorm, LAT, LON, AGE, CRIM, INDUS, PTRATIO"
-## + Fold1: parameter=none 
-## - Fold1: parameter=none 
-## + Fold2: parameter=none 
-## - Fold2: parameter=none 
-## + Fold3: parameter=none 
-## - Fold3: parameter=none 
+## + Fold01: parameter=none 
+## - Fold01: parameter=none 
+## + Fold02: parameter=none 
+## - Fold02: parameter=none 
+## + Fold03: parameter=none 
+## - Fold03: parameter=none 
+## + Fold04: parameter=none 
+## - Fold04: parameter=none 
+## + Fold05: parameter=none 
+## - Fold05: parameter=none 
+## + Fold06: parameter=none 
+## - Fold06: parameter=none 
+## + Fold07: parameter=none 
+## - Fold07: parameter=none 
+## + Fold08: parameter=none 
+## - Fold08: parameter=none 
+## + Fold09: parameter=none 
+## - Fold09: parameter=none 
+## + Fold10: parameter=none 
+## - Fold10: parameter=none 
 ## Aggregating results
 ## Fitting final model on full training set
 ```
@@ -2294,11 +2344,11 @@ ret_lst <- myfit_mdl(model_id="Low.cor.X",
 ##                                                       feats
 ## 1 RM, ZN, CHAS, .rnorm, LAT, LON, AGE, CRIM, INDUS, PTRATIO
 ##   max.nTuningRuns min.elapsedtime.everything min.elapsedtime.final
-## 1               1                      0.715                 0.004
+## 1               1                      0.793                 0.004
 ##   max.R.sq.fit min.RMSE.fit max.R.sq.OOB min.RMSE.OOB max.Adj.R.sq.fit
-## 1    0.6253947     6.089472    0.6489184     4.961275        0.6147826
+## 1    0.6253947     5.793811    0.6489184     4.961275        0.6147826
 ##   max.Rsquared.fit min.RMSESD.fit max.RsquaredSD.fit
-## 1        0.5873985      0.8634089         0.09783071
+## 1        0.6393438       1.602839          0.2061768
 ```
 
 ```r
@@ -2358,7 +2408,7 @@ model_id_pfx <- "All.X";
 ##                                                                   feats
 ## 1 LON, LAT, CRIM, ZN, INDUS, CHAS, NOX, RM, AGE, DIS, RAD, TAX, PTRATIO
 ##   max.nTuningRuns min.elapsedtime.everything min.elapsedtime.final
-## 1               0                      0.416                 0.005
+## 1               0                      0.414                 0.005
 ##   max.R.sq.fit min.RMSE.fit max.R.sq.OOB min.RMSE.OOB max.Adj.R.sq.fit
 ## 1    0.6649543     5.486684    0.6949362      4.62471        0.6525098
 ```
@@ -2428,12 +2478,26 @@ for (method in glb_models_method_vctr) {
 ## [1] "iterating over method:lm"
 ## [1] "fitting model: All.X.lm"
 ## [1] "    indep_vars: LON, LAT, CRIM, ZN, INDUS, CHAS, NOX, RM, AGE, DIS, RAD, TAX, PTRATIO, .rnorm"
-## + Fold1: parameter=none 
-## - Fold1: parameter=none 
-## + Fold2: parameter=none 
-## - Fold2: parameter=none 
-## + Fold3: parameter=none 
-## - Fold3: parameter=none 
+## + Fold01: parameter=none 
+## - Fold01: parameter=none 
+## + Fold02: parameter=none 
+## - Fold02: parameter=none 
+## + Fold03: parameter=none 
+## - Fold03: parameter=none 
+## + Fold04: parameter=none 
+## - Fold04: parameter=none 
+## + Fold05: parameter=none 
+## - Fold05: parameter=none 
+## + Fold06: parameter=none 
+## - Fold06: parameter=none 
+## + Fold07: parameter=none 
+## - Fold07: parameter=none 
+## + Fold08: parameter=none 
+## - Fold08: parameter=none 
+## + Fold09: parameter=none 
+## - Fold09: parameter=none 
+## + Fold10: parameter=none 
+## - Fold10: parameter=none 
 ## Aggregating results
 ## Fitting final model on full training set
 ```
@@ -2478,20 +2542,34 @@ for (method in glb_models_method_vctr) {
 ##                                                                           feats
 ## 1 LON, LAT, CRIM, ZN, INDUS, CHAS, NOX, RM, AGE, DIS, RAD, TAX, PTRATIO, .rnorm
 ##   max.nTuningRuns min.elapsedtime.everything min.elapsedtime.final
-## 1               1                      0.707                 0.007
+## 1               1                      0.806                 0.006
 ##   max.R.sq.fit min.RMSE.fit max.R.sq.OOB min.RMSE.OOB max.Adj.R.sq.fit
-## 1    0.6654907     5.842159     0.695457     4.620761         0.652072
+## 1    0.6654907     5.541975     0.695457     4.620761         0.652072
 ##   max.Rsquared.fit min.RMSESD.fit max.RsquaredSD.fit
-## 1        0.6206657      0.7178502         0.06391888
+## 1        0.6648438       1.600558            0.19777
 ## [1] "iterating over method:glm"
 ## [1] "fitting model: All.X.glm"
 ## [1] "    indep_vars: LON, LAT, CRIM, ZN, INDUS, CHAS, NOX, RM, AGE, DIS, RAD, TAX, PTRATIO, .rnorm"
-## + Fold1: parameter=none 
-## - Fold1: parameter=none 
-## + Fold2: parameter=none 
-## - Fold2: parameter=none 
-## + Fold3: parameter=none 
-## - Fold3: parameter=none 
+## + Fold01: parameter=none 
+## - Fold01: parameter=none 
+## + Fold02: parameter=none 
+## - Fold02: parameter=none 
+## + Fold03: parameter=none 
+## - Fold03: parameter=none 
+## + Fold04: parameter=none 
+## - Fold04: parameter=none 
+## + Fold05: parameter=none 
+## - Fold05: parameter=none 
+## + Fold06: parameter=none 
+## - Fold06: parameter=none 
+## + Fold07: parameter=none 
+## - Fold07: parameter=none 
+## + Fold08: parameter=none 
+## - Fold08: parameter=none 
+## + Fold09: parameter=none 
+## - Fold09: parameter=none 
+## + Fold10: parameter=none 
+## - Fold10: parameter=none 
 ## Aggregating results
 ## Fitting final model on full training set
 ```
@@ -2540,23 +2618,46 @@ for (method in glb_models_method_vctr) {
 ##                                                                           feats
 ## 1 LON, LAT, CRIM, ZN, INDUS, CHAS, NOX, RM, AGE, DIS, RAD, TAX, PTRATIO, .rnorm
 ##   max.nTuningRuns min.elapsedtime.everything min.elapsedtime.final
-## 1               1                      0.752                 0.022
+## 1               1                      0.964                  0.02
 ##   max.R.sq.fit min.RMSE.fit max.R.sq.OOB min.RMSE.OOB min.aic.fit
-## 1    0.6654907     5.842159     0.695457     4.620761    2303.696
+## 1    0.6654907     5.541975     0.695457     4.620761    2303.696
 ##   max.Rsquared.fit min.RMSESD.fit max.RsquaredSD.fit
-## 1        0.6206657      0.7178502         0.06391888
+## 1        0.6648438       1.600558            0.19777
 ## [1] "iterating over method:rpart"
 ## [1] "fitting model: All.X.rpart"
 ## [1] "    indep_vars: LON, LAT, CRIM, ZN, INDUS, CHAS, NOX, RM, AGE, DIS, RAD, TAX, PTRATIO"
-## + Fold1: cp=0.01 
-## - Fold1: cp=0.01 
-## + Fold2: cp=0.01 
-## - Fold2: cp=0.01 
-## + Fold3: cp=0.01 
-## - Fold3: cp=0.01 
+## + Fold01: cp=0.001 
+## - Fold01: cp=0.001 
+## + Fold02: cp=0.001 
+## - Fold02: cp=0.001 
+## + Fold03: cp=0.001 
+## - Fold03: cp=0.001 
+## + Fold04: cp=0.001 
+## - Fold04: cp=0.001 
+## + Fold05: cp=0.001 
+## - Fold05: cp=0.001 
+## + Fold06: cp=0.001 
+## - Fold06: cp=0.001 
+## + Fold07: cp=0.001 
+## - Fold07: cp=0.001 
+## + Fold08: cp=0.001 
+## - Fold08: cp=0.001 
+## + Fold09: cp=0.001 
+## - Fold09: cp=0.001 
+## + Fold10: cp=0.001 
+## - Fold10: cp=0.001 
 ## Aggregating results
-## Fitting final model on full training set
+## Selecting tuning parameters
+## Fitting cp = 0.001 on full training set
 ```
+
+```
+## Warning in myfit_mdl(model_id = paste0(model_id_pfx, ""), model_method =
+## method, : model's bestTune found at an extreme of tuneGrid for parameter:
+## cp
+```
+
+![](Boston_Housing_files/figure-html/fit.models-38.png) 
 
 ```
 ## Call:
@@ -2565,21 +2666,37 @@ for (method in glb_models_method_vctr) {
 ##     surrogatestyle = 0, maxdepth = 30, xval = 0))
 ##   n= 364 
 ## 
-##           CP nsplit rel error
-## 1 0.50286753      0 1.0000000
-## 2 0.10911832      1 0.4971325
-## 3 0.06378502      2 0.3880141
-## 4 0.05525050      3 0.3242291
-## 5 0.02753704      4 0.2689786
-## 6 0.02569617      5 0.2414416
-## 7 0.02280576      6 0.2157454
-## 8 0.01000000      7 0.1929397
+##             CP nsplit rel error
+## 1  0.502867534      0 1.0000000
+## 2  0.109118325      1 0.4971325
+## 3  0.063785018      2 0.3880141
+## 4  0.055250497      3 0.3242291
+## 5  0.027537041      4 0.2689786
+## 6  0.025696175      5 0.2414416
+## 7  0.022805757      6 0.2157454
+## 8  0.006658586      7 0.1929397
+## 9  0.006029867      8 0.1862811
+## 10 0.005753869      9 0.1802512
+## 11 0.004668334     10 0.1744973
+## 12 0.004637271     11 0.1698290
+## 13 0.004133845     12 0.1651917
+## 14 0.003909661     13 0.1610579
+## 15 0.003454681     14 0.1571482
+## 16 0.003083094     15 0.1536935
+## 17 0.002564086     16 0.1506104
+## 18 0.001950367     17 0.1480464
+## 19 0.001915924     18 0.1460960
+## 20 0.001808365     19 0.1441801
+## 21 0.001573639     20 0.1423717
+## 22 0.001057732     21 0.1407981
+## 23 0.001037443     23 0.1386826
+## 24 0.001000000     24 0.1376452
 ## 
 ## Variable importance
-##      RM     NOX    CRIM   INDUS PTRATIO     DIS      ZN     RAD     TAX 
-##      43      11       9       8       7       7       4       3       3 
-##     LON     AGE     LAT 
-##       3       2       1 
+##      RM     NOX    CRIM   INDUS PTRATIO     DIS      ZN     LON     RAD 
+##      39      11       9       8       8       7       4       4       3 
+##     TAX     LAT     AGE 
+##       3       2       2 
 ## 
 ## Node number 1: 364 observations,    complexity param=0.5028675
 ##   mean=22.93407, MSE=89.84955 
@@ -2660,17 +2777,69 @@ for (method in glb_models_method_vctr) {
 ##       LON   < -70.92075 to the left,  agree=0.788, adj=0.038, (0 split)
 ##       DIS   < 8.19015   to the left,  agree=0.788, adj=0.038, (0 split)
 ## 
-## Node number 6: 25 observations
+## Node number 6: 25 observations,    complexity param=0.001950367
 ##   mean=33.516, MSE=14.61254 
+##   left son=12 (8 obs) right son=13 (17 obs)
+##   Primary splits:
+##       LAT  < 42.2005   to the left,  improve=0.1746094, (0 missing)
+##       NOX  < 0.496     to the right, improve=0.1590396, (0 missing)
+##       CRIM < 0.276995  to the right, improve=0.1590396, (0 missing)
+##       TAX  < 258       to the right, improve=0.1583882, (0 missing)
+##       RM   < 7.2615    to the right, improve=0.1571862, (0 missing)
+##   Surrogate splits:
+##       CRIM    < 0.724605  to the right, agree=0.80, adj=0.375, (0 split)
+##       RAD     < 6         to the right, agree=0.80, adj=0.375, (0 split)
+##       INDUS   < 4.46      to the right, agree=0.76, adj=0.250, (0 split)
+##       PTRATIO < 18.95     to the right, agree=0.76, adj=0.250, (0 split)
+##       NOX     < 0.496     to the right, agree=0.72, adj=0.125, (0 split)
 ## 
-## Node number 7: 26 observations
+## Node number 7: 26 observations,    complexity param=0.003454681
 ##   mean=45.42308, MSE=18.68716 
+##   left son=14 (13 obs) right son=15 (13 obs)
+##   Primary splits:
+##       PTRATIO < 15.4      to the right, improve=0.2325458, (0 missing)
+##       RAD     < 3.5       to the left,  improve=0.1425359, (0 missing)
+##       DIS     < 3.20745   to the right, improve=0.1342571, (0 missing)
+##       NOX     < 0.541     to the left,  improve=0.1223549, (0 missing)
+##       CRIM    < 0.45114   to the left,  improve=0.1170314, (0 missing)
+##   Surrogate splits:
+##       NOX < 0.541     to the left,  agree=0.769, adj=0.538, (0 split)
+##       RAD < 6         to the right, agree=0.769, adj=0.538, (0 split)
+##       LON < -71.09535 to the left,  agree=0.731, adj=0.462, (0 split)
+##       ZN  < 10        to the left,  agree=0.731, adj=0.462, (0 split)
+##       AGE < 87.95     to the left,  agree=0.731, adj=0.462, (0 split)
 ## 
-## Node number 8: 39 observations
+## Node number 8: 39 observations,    complexity param=0.004133845
 ##   mean=10.78974, MSE=9.676305 
+##   left son=16 (20 obs) right son=17 (19 obs)
+##   Primary splits:
+##       CRIM < 11.36915  to the right, improve=0.3582592, (0 missing)
+##       DIS  < 2.03385   to the left,  improve=0.3306720, (0 missing)
+##       NOX  < 0.7065    to the left,  improve=0.2876345, (0 missing)
+##       LAT  < 42.1905   to the right, improve=0.1591293, (0 missing)
+##       RM   < 5.853     to the left,  improve=0.1359366, (0 missing)
+##   Surrogate splits:
+##       DIS < 1.9249    to the left,  agree=0.718, adj=0.421, (0 split)
+##       LON < -71.04675 to the right, agree=0.667, adj=0.316, (0 split)
+##       LAT < 42.188    to the right, agree=0.667, adj=0.316, (0 split)
+##       NOX < 0.7065    to the left,  agree=0.641, adj=0.263, (0 split)
+##       RM  < 5.3695    to the left,  agree=0.641, adj=0.263, (0 split)
 ## 
-## Node number 9: 33 observations
+## Node number 9: 33 observations,    complexity param=0.004668334
 ##   mean=17.88788, MSE=16.09016 
+##   left son=18 (21 obs) right son=19 (12 obs)
+##   Primary splits:
+##       LON < -71.05925 to the right, improve=0.2875445, (0 missing)
+##       AGE < 92        to the right, improve=0.1845894, (0 missing)
+##       DIS < 1.75085   to the left,  improve=0.1150895, (0 missing)
+##       LAT < 42.2013   to the left,  improve=0.1107536, (0 missing)
+##       RAD < 14.5      to the left,  improve=0.1062345, (0 missing)
+##   Surrogate splits:
+##       NOX  < 0.7155    to the left,  agree=0.758, adj=0.333, (0 split)
+##       CHAS < 0.5       to the left,  agree=0.727, adj=0.250, (0 split)
+##       LAT  < 42.2013   to the left,  agree=0.697, adj=0.167, (0 split)
+##       CRIM < 1.825685  to the right, agree=0.697, adj=0.167, (0 split)
+##       AGE  < 82.8      to the right, agree=0.667, adj=0.083, (0 split)
 ## 
 ## Node number 10: 188 observations,    complexity param=0.02569617
 ##   mean=20.50426, MSE=27.90817 
@@ -2685,8 +2854,68 @@ for (method in glb_models_method_vctr) {
 ##       DIS < 1.37275   to the right, agree=0.984, adj=0.667, (0 split)
 ##       RM  < 4.383     to the right, agree=0.968, adj=0.333, (0 split)
 ## 
-## Node number 11: 53 observations
+## Node number 11: 53 observations,    complexity param=0.004637271
 ##   mean=27.60755, MSE=16.79504 
+##   left son=22 (38 obs) right son=23 (15 obs)
+##   Primary splits:
+##       TAX     < 269       to the right, improve=0.17038170, (0 missing)
+##       PTRATIO < 18.35     to the right, improve=0.16541530, (0 missing)
+##       LON     < -71.05375 to the right, improve=0.12893610, (0 missing)
+##       NOX     < 0.515     to the right, improve=0.10740180, (0 missing)
+##       AGE     < 34        to the right, improve=0.09853561, (0 missing)
+##   Surrogate splits:
+##       LAT   < 42.28825  to the left,  agree=0.792, adj=0.267, (0 split)
+##       INDUS < 3.385     to the right, agree=0.792, adj=0.267, (0 split)
+##       CRIM  < 0.02831   to the right, agree=0.774, adj=0.200, (0 split)
+##       ZN    < 57.5      to the left,  agree=0.774, adj=0.200, (0 split)
+##       NOX   < 0.4185    to the right, agree=0.774, adj=0.200, (0 split)
+## 
+## Node number 12: 8 observations
+##   mean=31.1875, MSE=30.57109 
+## 
+## Node number 13: 17 observations
+##   mean=34.61176, MSE=3.35045 
+## 
+## Node number 14: 13 observations
+##   mean=43.33846, MSE=20.27929 
+## 
+## Node number 15: 13 observations
+##   mean=47.50769, MSE=8.403787 
+## 
+## Node number 16: 20 observations,    complexity param=0.001037443
+##   mean=8.975, MSE=4.310875 
+##   left son=32 (7 obs) right son=33 (13 obs)
+##   Primary splits:
+##       AGE  < 98.5      to the right, improve=0.39353740, (0 missing)
+##       CRIM < 24.22495  to the right, improve=0.12940850, (0 missing)
+##       DIS  < 1.7364    to the left,  improve=0.12231370, (0 missing)
+##       RM   < 5.7505    to the left,  improve=0.11504330, (0 missing)
+##       LON  < -71.03725 to the right, improve=0.05454991, (0 missing)
+##   Surrogate splits:
+##       CRIM < 43.63765  to the right, agree=0.7, adj=0.143, (0 split)
+##       RM   < 4.94      to the left,  agree=0.7, adj=0.143, (0 split)
+## 
+## Node number 17: 19 observations
+##   mean=12.7, MSE=8.208421 
+## 
+## Node number 18: 21 observations,    complexity param=0.001573639
+##   mean=16.2619, MSE=9.47093 
+##   left son=36 (10 obs) right son=37 (11 obs)
+##   Primary splits:
+##       AGE     < 92        to the right, improve=0.25876800, (0 missing)
+##       LON     < -71.0445  to the left,  improve=0.17667160, (0 missing)
+##       DIS     < 1.71455   to the left,  improve=0.15347860, (0 missing)
+##       PTRATIO < 17.45     to the left,  improve=0.07845466, (0 missing)
+##       RAD     < 14.5      to the left,  improve=0.07845466, (0 missing)
+##   Surrogate splits:
+##       LAT   < 42.17875  to the right, agree=0.810, adj=0.6, (0 split)
+##       DIS   < 1.5699    to the left,  agree=0.810, adj=0.6, (0 split)
+##       INDUS < 18.84     to the right, agree=0.762, adj=0.5, (0 split)
+##       NOX   < 0.7945    to the right, agree=0.762, adj=0.5, (0 split)
+##       RAD   < 14.5      to the left,  agree=0.762, adj=0.5, (0 split)
+## 
+## Node number 19: 12 observations
+##   mean=20.73333, MSE=14.95056 
 ## 
 ## Node number 20: 179 observations,    complexity param=0.02280576
 ##   mean=20.03017, MSE=13.46624 
@@ -2707,42 +2936,277 @@ for (method in glb_models_method_vctr) {
 ## Node number 21: 9 observations
 ##   mean=29.93333, MSE=221.7644 
 ## 
-## Node number 40: 85 observations
-##   mean=17.88353, MSE=9.762317 
+## Node number 22: 38 observations,    complexity param=0.003909661
+##   mean=26.54474, MSE=16.79879 
+##   left son=44 (16 obs) right son=45 (22 obs)
+##   Primary splits:
+##       PTRATIO < 17.7      to the right, improve=0.2003064, (0 missing)
+##       LON     < -71.0565  to the right, improve=0.1814292, (0 missing)
+##       RM      < 6.8425    to the left,  improve=0.1155244, (0 missing)
+##       LAT     < 42.19225  to the left,  improve=0.1092606, (0 missing)
+##       AGE     < 34        to the right, improve=0.0887140, (0 missing)
+##   Surrogate splits:
+##       LON   < -71.08425 to the right, agree=0.763, adj=0.438, (0 split)
+##       NOX   < 0.515     to the right, agree=0.737, adj=0.375, (0 split)
+##       INDUS < 7.38      to the right, agree=0.711, adj=0.312, (0 split)
+##       DIS   < 2.8589    to the left,  agree=0.711, adj=0.312, (0 split)
+##       TAX   < 329.5     to the right, agree=0.711, adj=0.312, (0 split)
 ## 
-## Node number 41: 94 observations
+## Node number 23: 15 observations
+##   mean=30.3, MSE=6.674667 
+## 
+## Node number 32: 7 observations
+##   mean=7.2, MSE=2.491429 
+## 
+## Node number 33: 13 observations
+##   mean=9.930769, MSE=2.680592 
+## 
+## Node number 36: 10 observations
+##   mean=14.62, MSE=2.7816 
+## 
+## Node number 37: 11 observations
+##   mean=17.75455, MSE=10.87339 
+## 
+## Node number 40: 85 observations,    complexity param=0.006029867
+##   mean=17.88353, MSE=9.762317 
+##   left son=80 (67 obs) right son=81 (18 obs)
+##   Primary splits:
+##       CRIM    < 0.140955  to the right, improve=0.2376584, (0 missing)
+##       LON     < -71.0621  to the right, improve=0.2261618, (0 missing)
+##       PTRATIO < 19.15     to the right, improve=0.2189265, (0 missing)
+##       AGE     < 93.2      to the right, improve=0.2073137, (0 missing)
+##       RM      < 5.7695    to the left,  improve=0.1936222, (0 missing)
+##   Surrogate splits:
+##       TAX   < 276.5     to the right, agree=0.835, adj=0.222, (0 split)
+##       INDUS < 4.59      to the right, agree=0.824, adj=0.167, (0 split)
+##       RAD   < 2.5       to the right, agree=0.824, adj=0.167, (0 split)
+##       RM    < 6.3605    to the left,  agree=0.800, adj=0.056, (0 split)
+## 
+## Node number 41: 94 observations,    complexity param=0.006658586
 ##   mean=21.97128, MSE=8.880771 
+##   left son=82 (48 obs) right son=83 (46 obs)
+##   Primary splits:
+##       RM      < 6.0615    to the left,  improve=0.26086800, (0 missing)
+##       PTRATIO < 19.65     to the right, improve=0.12362920, (0 missing)
+##       LON     < -71.0925  to the right, improve=0.12281530, (0 missing)
+##       LAT     < 42.1946   to the left,  improve=0.08135231, (0 missing)
+##       CRIM    < 1.71625   to the right, improve=0.07998606, (0 missing)
+##   Surrogate splits:
+##       NOX     < 0.496     to the right, agree=0.691, adj=0.370, (0 split)
+##       LON     < -71.02875 to the right, agree=0.649, adj=0.283, (0 split)
+##       ZN      < 21.5      to the left,  agree=0.649, adj=0.283, (0 split)
+##       PTRATIO < 18.75     to the right, agree=0.617, adj=0.217, (0 split)
+##       INDUS   < 5.03      to the right, agree=0.606, adj=0.196, (0 split)
+## 
+## Node number 44: 16 observations
+##   mean=24.39375, MSE=11.17184 
+## 
+## Node number 45: 22 observations,    complexity param=0.002564086
+##   mean=28.10909, MSE=15.07901 
+##   left son=90 (13 obs) right son=91 (9 obs)
+##   Primary splits:
+##       DIS  < 3.87095   to the right, improve=0.2527868, (0 missing)
+##       LAT  < 42.21395  to the left,  improve=0.2203815, (0 missing)
+##       ZN   < 9         to the right, improve=0.1710104, (0 missing)
+##       NOX  < 0.4605    to the left,  improve=0.1614270, (0 missing)
+##       CRIM < 0.11954   to the left,  improve=0.1565339, (0 missing)
+##   Surrogate splits:
+##       NOX  < 0.494     to the left,  agree=0.909, adj=0.778, (0 split)
+##       ZN   < 9         to the right, agree=0.864, adj=0.667, (0 split)
+##       AGE  < 65.85     to the left,  agree=0.864, adj=0.667, (0 split)
+##       LAT  < 42.2122   to the left,  agree=0.818, adj=0.556, (0 split)
+##       CRIM < 0.243705  to the left,  agree=0.818, adj=0.556, (0 split)
+## 
+## Node number 80: 67 observations,    complexity param=0.005753869
+##   mean=17.09403, MSE=8.92683 
+##   left son=160 (45 obs) right son=161 (22 obs)
+##   Primary splits:
+##       LON     < -71.0621  to the right, improve=0.3146337, (0 missing)
+##       PTRATIO < 19.15     to the right, improve=0.1806497, (0 missing)
+##       RM      < 5.7695    to the left,  improve=0.1741352, (0 missing)
+##       AGE     < 93.2      to the right, improve=0.1705091, (0 missing)
+##       DIS     < 2.2085    to the left,  improve=0.1504167, (0 missing)
+##   Surrogate splits:
+##       NOX     < 0.522     to the right, agree=0.731, adj=0.182, (0 split)
+##       PTRATIO < 14.95     to the right, agree=0.731, adj=0.182, (0 split)
+##       CHAS    < 0.5       to the left,  agree=0.701, adj=0.091, (0 split)
+##       DIS     < 7.3867    to the left,  agree=0.701, adj=0.091, (0 split)
+##       LAT     < 42.1805   to the right, agree=0.687, adj=0.045, (0 split)
+## 
+## Node number 81: 18 observations
+##   mean=20.82222, MSE=1.916173 
+## 
+## Node number 82: 48 observations,    complexity param=0.001915924
+##   mean=20.48125, MSE=6.407357 
+##   left son=164 (21 obs) right son=165 (27 obs)
+##   Primary splits:
+##       LAT     < 42.20835  to the left,  improve=0.20373960, (0 missing)
+##       LON     < -71.08185 to the right, improve=0.16651880, (0 missing)
+##       RM      < 5.8435    to the left,  improve=0.14735910, (0 missing)
+##       PTRATIO < 19.65     to the right, improve=0.12008380, (0 missing)
+##       CRIM    < 0.67778   to the right, improve=0.09574128, (0 missing)
+##   Surrogate splits:
+##       PTRATIO < 19.4      to the right, agree=0.708, adj=0.333, (0 split)
+##       TAX     < 228.5     to the left,  agree=0.688, adj=0.286, (0 split)
+##       CRIM    < 0.0434    to the left,  agree=0.667, adj=0.238, (0 split)
+##       INDUS   < 5.415     to the left,  agree=0.667, adj=0.238, (0 split)
+##       RM      < 5.967     to the right, agree=0.646, adj=0.190, (0 split)
+## 
+## Node number 83: 46 observations,    complexity param=0.001057732
+##   mean=23.52609, MSE=6.72758 
+##   left son=166 (39 obs) right son=167 (7 obs)
+##   Primary splits:
+##       TAX   < 242       to the right, improve=0.11005720, (0 missing)
+##       NOX   < 0.4555    to the left,  improve=0.10385270, (0 missing)
+##       INDUS < 3.13      to the right, improve=0.09226275, (0 missing)
+##       RM    < 6.142     to the left,  improve=0.06935965, (0 missing)
+##       RAD   < 4.5       to the right, improve=0.05863127, (0 missing)
+## 
+## Node number 90: 13 observations
+##   mean=26.48462, MSE=7.661302 
+## 
+## Node number 91: 9 observations
+##   mean=30.45556, MSE=16.4758 
+## 
+## Node number 160: 45 observations,    complexity param=0.003083094
+##   mean=15.92222, MSE=6.999062 
+##   left son=320 (27 obs) right son=321 (18 obs)
+##   Primary splits:
+##       PTRATIO < 19.45     to the right, improve=0.3201487, (0 missing)
+##       TAX     < 434.5     to the right, improve=0.2272027, (0 missing)
+##       CRIM    < 0.903905  to the right, improve=0.2175012, (0 missing)
+##       AGE     < 91.95     to the right, improve=0.2060130, (0 missing)
+##       NOX     < 0.5825    to the right, improve=0.1835506, (0 missing)
+##   Surrogate splits:
+##       CRIM  < 0.26266   to the right, agree=0.844, adj=0.611, (0 split)
+##       TAX   < 305.5     to the right, agree=0.800, adj=0.500, (0 split)
+##       LON   < -71.04165 to the left,  agree=0.778, adj=0.444, (0 split)
+##       NOX   < 0.5825    to the right, agree=0.756, adj=0.389, (0 split)
+##       INDUS < 14.055    to the right, agree=0.733, adj=0.333, (0 split)
+## 
+## Node number 161: 22 observations
+##   mean=19.49091, MSE=4.316281 
+## 
+## Node number 164: 21 observations,    complexity param=0.001808365
+##   mean=19.18571, MSE=7.430748 
+##   left son=328 (13 obs) right son=329 (8 obs)
+##   Primary splits:
+##       LON     < -71.0624  to the right, improve=0.37901090, (0 missing)
+##       RM      < 5.8465    to the left,  improve=0.15139790, (0 missing)
+##       TAX     < 320.5     to the right, improve=0.09538651, (0 missing)
+##       PTRATIO < 18.7      to the right, improve=0.06549328, (0 missing)
+##       NOX     < 0.5095    to the right, improve=0.05586000, (0 missing)
+##   Surrogate splits:
+##       CRIM  < 0.07408   to the left,  agree=0.857, adj=0.625, (0 split)
+##       INDUS < 6.13      to the left,  agree=0.857, adj=0.625, (0 split)
+##       DIS   < 4.57505   to the right, agree=0.810, adj=0.500, (0 split)
+##       LAT   < 42.15215  to the left,  agree=0.762, adj=0.375, (0 split)
+##       RAD   < 6.5       to the left,  agree=0.762, adj=0.375, (0 split)
+## 
+## Node number 165: 27 observations
+##   mean=21.48889, MSE=3.290617 
+## 
+## Node number 166: 39 observations,    complexity param=0.001057732
+##   mean=23.16154, MSE=2.359803 
+##   left son=332 (22 obs) right son=333 (17 obs)
+##   Primary splits:
+##       AGE  < 43.7      to the right, improve=0.3816866, (0 missing)
+##       TAX  < 353       to the right, improve=0.2019025, (0 missing)
+##       RM   < 6.3665    to the left,  improve=0.1718166, (0 missing)
+##       LON  < -71.12225 to the right, improve=0.1431431, (0 missing)
+##       CRIM < 0.125455  to the left,  improve=0.1267532, (0 missing)
+##   Surrogate splits:
+##       DIS < 5.2074    to the left,  agree=0.769, adj=0.471, (0 split)
+##       NOX < 0.434     to the right, agree=0.744, adj=0.412, (0 split)
+##       LON < -71.1049  to the right, agree=0.718, adj=0.353, (0 split)
+##       ZN  < 21.5      to the left,  agree=0.718, adj=0.353, (0 split)
+##       LAT < 42.12775  to the right, agree=0.692, adj=0.294, (0 split)
+## 
+## Node number 167: 7 observations
+##   mean=25.55714, MSE=26.19673 
+## 
+## Node number 320: 27 observations
+##   mean=14.7, MSE=5.69037 
+## 
+## Node number 321: 18 observations
+##   mean=17.75556, MSE=3.360247 
+## 
+## Node number 328: 13 observations
+##   mean=17.86923, MSE=6.474438 
+## 
+## Node number 329: 8 observations
+##   mean=21.325, MSE=1.591875 
+## 
+## Node number 332: 22 observations
+##   mean=22.32727, MSE=1.236529 
+## 
+## Node number 333: 17 observations
+##   mean=24.24118, MSE=1.747128 
 ## 
 ## n= 364 
 ## 
 ## node), split, n, deviance, yval
 ##       * denotes terminal node
 ## 
-##  1) root 364 32705.2400 22.93407  
-##    2) RM< 6.978 313 13600.6800 20.22077  
-##      4) NOX>=0.6695 72  1808.9570 14.04306  
-##        8) CRIM>=6.99237 39   377.3759 10.78974 *
-##        9) CRIM< 6.99237 33   530.9752 17.88788 *
-##      5) NOX< 0.6695 241  8222.9780 22.06639  
-##       10) RM< 6.484 188  5246.7370 20.50426  
-##         20) NOX< 0.6275 179  2410.4570 20.03017  
-##           40) AGE>=69.95 85   829.7969 17.88353 *
-##           41) AGE< 69.95 94   834.7924 21.97128 *
-##         21) NOX>=0.6275 9  1995.8800 29.93333 *
-##       11) RM>=6.484 53   890.1370 27.60755 *
-##    3) RM>=6.978 51  2658.1600 39.58627  
-##      6) RM< 7.435 25   365.3136 33.51600 *
-##      7) RM>=7.435 26   485.8662 45.42308 *
+##   1) root 364 32705.24000 22.934070  
+##     2) RM< 6.978 313 13600.68000 20.220770  
+##       4) NOX>=0.6695 72  1808.95700 14.043060  
+##         8) CRIM>=6.99237 39   377.37590 10.789740  
+##          16) CRIM>=11.36915 20    86.21750  8.975000  
+##            32) AGE>=98.5 7    17.44000  7.200000 *
+##            33) AGE< 98.5 13    34.84769  9.930769 *
+##          17) CRIM< 11.36915 19   155.96000 12.700000 *
+##         9) CRIM< 6.99237 33   530.97520 17.887880  
+##          18) LON>=-71.05925 21   198.88950 16.261900  
+##            36) AGE>=92 10    27.81600 14.620000 *
+##            37) AGE< 92 11   119.60730 17.754550 *
+##          19) LON< -71.05925 12   179.40670 20.733330 *
+##       5) NOX< 0.6695 241  8222.97800 22.066390  
+##        10) RM< 6.484 188  5246.73700 20.504260  
+##          20) NOX< 0.6275 179  2410.45700 20.030170  
+##            40) AGE>=69.95 85   829.79690 17.883530  
+##              80) CRIM>=0.140955 67   598.09760 17.094030  
+##               160) LON>=-71.0621 45   314.95780 15.922220  
+##                 320) PTRATIO>=19.45 27   153.64000 14.700000 *
+##                 321) PTRATIO< 19.45 18    60.48444 17.755560 *
+##               161) LON< -71.0621 22    94.95818 19.490910 *
+##              81) CRIM< 0.140955 18    34.49111 20.822220 *
+##            41) AGE< 69.95 94   834.79240 21.971280  
+##              82) RM< 6.0615 48   307.55310 20.481250  
+##               164) LAT< 42.20835 21   156.04570 19.185710  
+##                 328) LON>=-71.0624 13    84.16769 17.869230 *
+##                 329) LON< -71.0624 8    12.73500 21.325000 *
+##               165) LAT>=42.20835 27    88.84667 21.488890 *
+##              83) RM>=6.0615 46   309.46870 23.526090  
+##               166) TAX>=242 39    92.03231 23.161540  
+##                 332) AGE>=43.7 22    27.20364 22.327270 *
+##                 333) AGE< 43.7 17    29.70118 24.241180 *
+##               167) TAX< 242 7   183.37710 25.557140 *
+##          21) NOX>=0.6275 9  1995.88000 29.933330 *
+##        11) RM>=6.484 53   890.13700 27.607550  
+##          22) TAX>=269 38   638.35390 26.544740  
+##            44) PTRATIO>=17.7 16   178.74940 24.393750 *
+##            45) PTRATIO< 17.7 22   331.73820 28.109090  
+##              90) DIS>=3.87095 13    99.59692 26.484620 *
+##              91) DIS< 3.87095 9   148.28220 30.455560 *
+##          23) TAX< 269 15   100.12000 30.300000 *
+##     3) RM>=6.978 51  2658.16000 39.586270  
+##       6) RM< 7.435 25   365.31360 33.516000  
+##        12) LAT< 42.2005 8   244.56870 31.187500 *
+##        13) LAT>=42.2005 17    56.95765 34.611760 *
+##       7) RM>=7.435 26   485.86620 45.423080  
+##        14) PTRATIO>=15.4 13   263.63080 43.338460 *
+##        15) PTRATIO< 15.4 13   109.24920 47.507690 *
 ##      model_id model_method
 ## 1 All.X.rpart        rpart
 ##                                                                   feats
 ## 1 LON, LAT, CRIM, ZN, INDUS, CHAS, NOX, RM, AGE, DIS, RAD, TAX, PTRATIO
 ##   max.nTuningRuns min.elapsedtime.everything min.elapsedtime.final
-## 1               1                      0.752                 0.025
+## 1              10                      1.553                 0.025
 ##   max.R.sq.fit min.RMSE.fit max.R.sq.OOB min.RMSE.OOB max.Rsquared.fit
-## 1    0.8070603     4.956203    0.5651699     5.521397        0.7290532
+## 1    0.8623548     4.607105    0.6307835     5.087797        0.7465918
 ##   min.RMSESD.fit max.RsquaredSD.fit
-## 1      0.8629703          0.0716059
+## 1       1.690352          0.2140281
 ## [1] "iterating over method:rf"
 ## [1] "fitting model: All.X.rf"
 ## [1] "    indep_vars: LON, LAT, CRIM, ZN, INDUS, CHAS, NOX, RM, AGE, DIS, RAD, TAX, PTRATIO, .rnorm"
@@ -2754,7 +3218,7 @@ for (method in glb_models_method_vctr) {
 ## Type rfNews() to see new features/changes/bug fixes.
 ```
 
-![](Boston_Housing_files/figure-html/fit.models-38.png) 
+![](Boston_Housing_files/figure-html/fit.models-39.png) 
 
 ```
 ## + : mtry= 2 
@@ -2768,7 +3232,7 @@ for (method in glb_models_method_vctr) {
 ## Fitting mtry = 8 on full training set
 ```
 
-![](Boston_Housing_files/figure-html/fit.models-39.png) ![](Boston_Housing_files/figure-html/fit.models-40.png) 
+![](Boston_Housing_files/figure-html/fit.models-40.png) ![](Boston_Housing_files/figure-html/fit.models-41.png) 
 
 ```
 ##                 Length Class      Mode     
@@ -2798,7 +3262,7 @@ for (method in glb_models_method_vctr) {
 ##                                                                           feats
 ## 1 LON, LAT, CRIM, ZN, INDUS, CHAS, NOX, RM, AGE, DIS, RAD, TAX, PTRATIO, .rnorm
 ##   max.nTuningRuns min.elapsedtime.everything min.elapsedtime.final
-## 1               3                      5.515                 0.962
+## 1               3                      5.132                 0.961
 ##   max.R.sq.fit min.RMSE.fit max.R.sq.OOB min.RMSE.OOB max.Rsquared.fit
 ## 1    0.9619153      4.28035    0.7940646     3.797181         0.796088
 ```
@@ -2838,43 +3302,43 @@ print(glb_models_df)
 ## 11         LON, LAT, CRIM, ZN, INDUS, CHAS, NOX, RM, AGE, DIS, RAD, TAX, PTRATIO
 ## 12 LON, LAT, CRIM, ZN, INDUS, CHAS, NOX, RM, AGE, DIS, RAD, TAX, PTRATIO, .rnorm
 ##    max.nTuningRuns min.elapsedtime.everything min.elapsedtime.final
-## 1                0                      0.602                 0.002
-## 2                0                      0.416                 0.003
-## 3                0                      0.628                 0.018
-## 4                0                      0.439                 0.002
-## 5                1                      0.756                 0.002
-## 6                1                      0.918                 0.003
-## 7                1                      0.715                 0.004
-## 8                0                      0.416                 0.005
-## 9                1                      0.707                 0.007
-## 10               1                      0.752                 0.022
-## 11               1                      0.752                 0.025
-## 12               3                      5.515                 0.962
+## 1                0                      0.605                 0.004
+## 2                0                      0.414                 0.003
+## 3                0                      0.533                 0.018
+## 4                0                      0.431                 0.002
+## 5                1                      0.805                 0.003
+## 6                1                      0.981                 0.004
+## 7                1                      0.793                 0.004
+## 8                0                      0.414                 0.005
+## 9                1                      0.806                 0.006
+## 10               1                      0.964                 0.020
+## 11              10                      1.553                 0.025
+## 12               3                      5.132                 0.961
 ##    max.R.sq.fit min.RMSE.fit max.R.sq.OOB min.RMSE.OOB max.Adj.R.sq.fit
 ## 1  0.0006593684     9.475775 -0.002734968     8.384599     -0.002101241
 ## 2  0.1071648958     8.667656           NA           NA      0.103614856
 ## 3  0.5635405103     6.060215           NA           NA               NA
 ## 4  0.5022979132     6.687175  0.422965492     6.360483      0.500923046
-## 5  0.5022979132     6.736451  0.422965492     6.360483      0.500923046
-## 6  0.6029820329     6.062844  0.591061401     5.354492      0.597437089
-## 7  0.6253946970     6.089472  0.648918353     4.961275      0.614782649
+## 5  0.5022979132     6.625483  0.422965492     6.360483      0.500923046
+## 6  0.6029820329     5.868191  0.591061401     5.354492      0.597437089
+## 7  0.6253946970     5.793811  0.648918353     4.961275      0.614782649
 ## 8  0.6649543413     5.486684  0.694936215     4.624710      0.652509788
-## 9  0.6654907244     5.842159  0.695457041     4.620761      0.652072014
-## 10 0.6654907244     5.842159  0.695457041     4.620761               NA
-## 11 0.8070603476     4.956203  0.565169906     5.521397               NA
+## 9  0.6654907244     5.541975  0.695457041     4.620761      0.652072014
+## 10 0.6654907244     5.541975  0.695457041     4.620761               NA
+## 11 0.8623548418     4.607105  0.630783469     5.087797               NA
 ## 12 0.9619152730     4.280350  0.794064554     3.797181               NA
 ##    max.Rsquared.fit min.RMSESD.fit max.RsquaredSD.fit min.aic.fit
 ## 1                NA             NA                 NA          NA
 ## 2                NA             NA                 NA          NA
 ## 3                NA             NA                 NA          NA
 ## 4                NA             NA                 NA          NA
-## 5         0.5055935      0.7475416         0.12596219          NA
-## 6         0.5955670      0.7128725         0.08160762          NA
-## 7         0.5873985      0.8634089         0.09783071          NA
+## 5         0.5335055       1.335810          0.1836241          NA
+## 6         0.6342187       1.804358          0.2221433          NA
+## 7         0.6393438       1.602839          0.2061768          NA
 ## 8                NA             NA                 NA          NA
-## 9         0.6206657      0.7178502         0.06391888          NA
-## 10        0.6206657      0.7178502         0.06391888    2303.696
-## 11        0.7290532      0.8629703         0.07160590          NA
+## 9         0.6648438       1.600558          0.1977700          NA
+## 10        0.6648438       1.600558          0.1977700    2303.696
+## 11        0.7465918       1.690352          0.2140281          NA
 ## 12        0.7960880             NA                 NA          NA
 ```
 
@@ -2968,33 +3432,33 @@ print(plt_models_df)
 ## 8                0 0.6649543413  0.694936215      0.652509788
 ## 9                1 0.6654907244  0.695457041      0.652072014
 ## 10               1 0.6654907244  0.695457041               NA
-## 11               1 0.8070603476  0.565169906               NA
+## 11              10 0.8623548418  0.630783469               NA
 ## 12               3 0.9619152730  0.794064554               NA
 ##    max.Rsquared.fit inv.elapsedtime.everything inv.elapsedtime.final
-## 1                NA                  1.6611296            500.000000
-## 2                NA                  2.4038462            333.333333
-## 3                NA                  1.5923567             55.555556
-## 4                NA                  2.2779043            500.000000
-## 5         0.5055935                  1.3227513            500.000000
-## 6         0.5955670                  1.0893246            333.333333
-## 7         0.5873985                  1.3986014            250.000000
-## 8                NA                  2.4038462            200.000000
-## 9         0.6206657                  1.4144272            142.857143
-## 10        0.6206657                  1.3297872             45.454545
-## 11        0.7290532                  1.3297872             40.000000
-## 12        0.7960880                  0.1813237              1.039501
+## 1                NA                  1.6528926            250.000000
+## 2                NA                  2.4154589            333.333333
+## 3                NA                  1.8761726             55.555556
+## 4                NA                  2.3201856            500.000000
+## 5         0.5335055                  1.2422360            333.333333
+## 6         0.6342187                  1.0193680            250.000000
+## 7         0.6393438                  1.2610340            250.000000
+## 8                NA                  2.4154589            200.000000
+## 9         0.6648438                  1.2406948            166.666667
+## 10        0.6648438                  1.0373444             50.000000
+## 11        0.7465918                  0.6439150             40.000000
+## 12        0.7960880                  0.1948558              1.040583
 ##    inv.RMSE.fit inv.RMSE.OOB  inv.aic.fit
 ## 1     0.1055323    0.1192663           NA
 ## 2     0.1153714           NA           NA
 ## 3     0.1650107           NA           NA
 ## 4     0.1495400    0.1572208           NA
-## 5     0.1484461    0.1572208           NA
-## 6     0.1649391    0.1867591           NA
-## 7     0.1642178    0.2015611           NA
+## 5     0.1509324    0.1572208           NA
+## 6     0.1704103    0.1867591           NA
+## 7     0.1725980    0.2015611           NA
 ## 8     0.1822594    0.2162298           NA
-## 9     0.1711696    0.2164146           NA
-## 10    0.1711696    0.2164146 0.0004340851
-## 11    0.2017674    0.1811136           NA
+## 9     0.1804411    0.2164146           NA
+## 10    0.1804411    0.2164146 0.0004340851
+## 11    0.2170561    0.1965487           NA
 ## 12    0.2336257    0.2633532           NA
 ```
 
@@ -3036,7 +3500,7 @@ print(myplot_radar(radar_inp_df=plt_models_df))
 ## 12. Consider specifying shapes manually. if you must have them.
 ```
 
-![](Boston_Housing_files/figure-html/fit.models-41.png) 
+![](Boston_Housing_files/figure-html/fit.models-42.png) 
 
 ```r
 # print(myplot_radar(radar_inp_df=subset(plt_models_df, 
@@ -3159,7 +3623,7 @@ print(myplot_bar(mltd_models_df, "model_id", "value", colorcol_name="model_metho
 ## Warning: Removed 5 rows containing missing values (position_stack).
 ```
 
-![](Boston_Housing_files/figure-html/fit.models-42.png) 
+![](Boston_Housing_files/figure-html/fit.models-43.png) 
 
 ```r
 model_evl_terms <- c(NULL)
@@ -3177,8 +3641,8 @@ print(tmp_models_df <- orderBy(model_sel_frmla, glb_models_df)[, c("model_id", g
 ## 10              All.X.glm     4.620761  0.695457041               NA
 ## 8           All.X.cv.0.lm     4.624710  0.694936215      0.652509788
 ## 7            Low.cor.X.lm     4.961275  0.648918353      0.614782649
+## 11            All.X.rpart     5.087797  0.630783469               NA
 ## 6  Interact.High.cor.y.lm     5.354492  0.591061401      0.597437089
-## 11            All.X.rpart     5.521397  0.565169906               NA
 ## 4       Max.cor.Y.cv.0.lm     6.360483  0.422965492      0.500923046
 ## 5       Max.cor.Y.cv.G.lm     6.360483  0.422965492      0.500923046
 ## 1                  MFO.lm     8.384599 -0.002734968     -0.002101241
@@ -3190,8 +3654,8 @@ print(tmp_models_df <- orderBy(model_sel_frmla, glb_models_df)[, c("model_id", g
 ## 10    2303.696
 ## 8           NA
 ## 7           NA
-## 6           NA
 ## 11          NA
+## 6           NA
 ## 4           NA
 ## 5           NA
 ## 1           NA
@@ -3237,7 +3701,7 @@ print(myplot_radar(radar_inp_df=tmp_models_df))
 ## 12. Consider specifying shapes manually. if you must have them.
 ```
 
-![](Boston_Housing_files/figure-html/fit.models-43.png) 
+![](Boston_Housing_files/figure-html/fit.models-44.png) 
 
 ```r
 print("Metrics used for model selection:"); print(model_sel_frmla)
@@ -3267,7 +3731,7 @@ if (is.null(glb_sel_mdl_id))
 myprint_mdl(glb_sel_mdl <- glb_models_lst[[glb_sel_mdl_id]])
 ```
 
-![](Boston_Housing_files/figure-html/fit.models-44.png) 
+![](Boston_Housing_files/figure-html/fit.models-45.png) 
 
 ```
 ##                 Length Class      Mode     
@@ -3314,7 +3778,7 @@ replay.petrisim(pn=glb_analytics_pn,
 ## 3.0000 	 3 	 0 2 1 0
 ```
 
-![](Boston_Housing_files/figure-html/fit.models-45.png) 
+![](Boston_Housing_files/figure-html/fit.models-46.png) 
 
 ```r
 glb_script_df <- rbind(glb_script_df, 
@@ -3327,8 +3791,8 @@ print(tail(glb_script_df, 2))
 
 ```
 ##                    chunk_label chunk_step_major chunk_step_minor elapsed
-## elapsed8            fit.models                5                0   6.980
-## elapsed9 fit.data.training.all                6                0  42.018
+## elapsed8            fit.models                5                0   7.029
+## elapsed9 fit.data.training.all                6                0  44.222
 ```
 
 ## Step `6`: fit.data.training.all
@@ -3415,7 +3879,7 @@ if (!is.null(glb_fin_mdl_id) && (glb_fin_mdl_id %in% names(glb_models_lst))) {
 ##                                                                           feats
 ## 1 RM, LON, DIS, CRIM, NOX, INDUS, PTRATIO, AGE, TAX, LAT, .rnorm, ZN, RAD, CHAS
 ##   max.nTuningRuns min.elapsedtime.everything min.elapsedtime.final
-## 1               3                      4.822                 0.959
+## 1               3                      5.023                 0.955
 ##   max.R.sq.fit min.RMSE.fit max.Rsquared.fit
 ## 1    0.9624498     4.309933        0.7932597
 ```
@@ -3431,8 +3895,8 @@ print(tail(glb_script_df, 2))
 
 ```
 ##                     chunk_label chunk_step_major chunk_step_minor elapsed
-## elapsed9  fit.data.training.all                6                0  42.018
-## elapsed10 fit.data.training.all                6                1  52.347
+## elapsed9  fit.data.training.all                6                0  44.222
+## elapsed10 fit.data.training.all                6                1  55.433
 ```
 
 
@@ -3664,8 +4128,8 @@ print(tail(glb_script_df, 2))
 
 ```
 ##                     chunk_label chunk_step_major chunk_step_minor elapsed
-## elapsed10 fit.data.training.all                6                1  52.347
-## elapsed11      predict.data.new                7                0  60.137
+## elapsed10 fit.data.training.all                6                1  55.433
+## elapsed11      predict.data.new                7                0  63.173
 ```
 
 ## Step `7`: predict data.new
@@ -3869,35 +4333,35 @@ We reject the null hypothesis i.e. we have evidence to conclude that am_fctr imp
 
 ```
 ##                   chunk_label chunk_step_major chunk_step_minor elapsed
-## 10      fit.data.training.all                6                0  42.018
-## 11      fit.data.training.all                6                1  52.347
-## 12           predict.data.new                7                0  60.137
-## 9                  fit.models                5                0   6.980
-## 4         manage_missing_data                2                2   2.397
-## 7             select_features                4                0   3.778
-## 5          encode_retype_data                2                3   2.944
-## 2                cleanse_data                2                0   0.480
-## 8  remove_correlated_features                4                1   3.959
-## 6            extract_features                3                0   2.998
-## 3       inspectORexplore.data                2                1   0.515
+## 10      fit.data.training.all                6                0  44.222
+## 11      fit.data.training.all                6                1  55.433
+## 12           predict.data.new                7                0  63.173
+## 9                  fit.models                5                0   7.029
+## 4         manage_missing_data                2                2   2.415
+## 7             select_features                4                0   3.799
+## 5          encode_retype_data                2                3   2.949
+## 2                cleanse_data                2                0   0.514
+## 8  remove_correlated_features                4                1   3.983
+## 6            extract_features                3                0   3.007
+## 3       inspectORexplore.data                2                1   0.548
 ## 1                 import_data                1                0   0.002
 ##    elapsed_diff
-## 10       35.038
-## 11       10.329
-## 12        7.790
-## 9         3.021
-## 4         1.882
-## 7         0.780
-## 5         0.547
-## 2         0.478
-## 8         0.181
-## 6         0.054
-## 3         0.035
+## 10       37.193
+## 11       11.211
+## 12        7.740
+## 9         3.046
+## 4         1.867
+## 7         0.792
+## 5         0.534
+## 2         0.512
+## 8         0.184
+## 6         0.058
+## 3         0.034
 ## 1         0.000
 ```
 
 ```
-## [1] "Total Elapsed Time: 60.137 secs"
+## [1] "Total Elapsed Time: 63.173 secs"
 ```
 
 ![](Boston_Housing_files/figure-html/print_sessionInfo-1.png) 
